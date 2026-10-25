@@ -10,7 +10,7 @@ type Base = { id: string; text: string; help?: string; required?: boolean; show?
 export type Question =
   | (Base & { kind: "single"; options: string[] })
   | (Base & { kind: "multi"; options: string[]; max: number })
-  | (Base & { kind: "text"; long?: boolean; placeholder?: string; suggestions?: string[] })
+  | (Base & { kind: "text"; long?: boolean; minWords?: number; placeholder?: string; suggestions?: string[] })
   | (Base & { kind: "consent"; label: string })
   | (Base & { kind: "info" })
   | (Base & { kind: "contact" });
@@ -18,6 +18,20 @@ export type Question =
 export type Contact = { phone?: string; email?: string; platform?: string; consent?: boolean };
 
 export const UNDER_18 = "Under 18";
+
+// Minimum length for the open pain question (C1). Raise toward 100 if answers come back thin.
+export const MIN_WORDS = 50;
+
+// Words = runs of 2+ letters (any script). Unique count blocks "good good good…" filler.
+export function wordStats(s: string): { words: number; unique: number } {
+  const w = (s.toLowerCase().match(/\p{L}{2,}/gu) || []);
+  return { words: w.length, unique: new Set(w).size };
+}
+
+export function enoughWords(s: string, min: number): boolean {
+  const { words, unique } = wordStats(s);
+  return words >= min && unique >= Math.ceil(min / 2);
+}
 
 export function branchOf(a: Answers): Branch {
   if (a.A2 === "Woman") return "woman";
@@ -53,7 +67,12 @@ export const QUESTIONS: Question[] = [
   { id: "A6", kind: "text", text: "Which college or area?", help: "College name if you're a student, neighbourhood if not.", placeholder: "e.g. Miranda House, or Koramangala" },
 
   // 1. Pain, unprompted (before the idea is shown)
-  { id: "C1", kind: "text", long: true, text: "Describe your last week on dating apps. What happened?", placeholder: "Swiped a bit, got 3 matches, nobody replied…" },
+  {
+    id: "C1", kind: "text", long: true, required: true, minWords: MIN_WORDS,
+    text: "Describe your last week on dating apps. What happened?",
+    help: `Don't use dating apps? Tell us why, or how you meet people instead. At least ${MIN_WORDS} words, your honest experience helps most.`,
+    placeholder: "Swiped a bit, got 3 matches, nobody replied…",
+  },
 
   // 2. Pain
   {
@@ -170,6 +189,7 @@ export function validate(raw: unknown): { ok: true; value: Clean } | { ok: false
       case "text":
         if (typeof v !== "string") return { ok: false, error: `bad ${q.id}` };
         answers[q.id] = v.trim().slice(0, q.long ? TEXT_MAX : SHORT_MAX);
+        if (q.minWords && !enoughWords(answers[q.id] as string, q.minWords)) return { ok: false, error: `${q.id} too short` };
         break;
       case "consent":
         if (v !== true) return { ok: false, error: `bad ${q.id}` };
@@ -193,6 +213,20 @@ export function validate(raw: unknown): { ok: true; value: Clean } | { ok: false
     if (q.id === "A1" && v === UNDER_18) return { ok: false, error: "under 18" };
   }
   return { ok: true, value: { answers, contact, branch: branchOf(answers) } };
+}
+
+// Keys used to recognise the same person across submissions (one response per phone/email).
+// Phone: digits only, Indian 10-digit and 0-prefixed numbers normalised to 91XXXXXXXXXX.
+export function contactKeys(c: Contact): { phoneKey?: string; emailKey?: string } {
+  const keys: { phoneKey?: string; emailKey?: string } = {};
+  if (c.phone) {
+    let d = c.phone.replace(/\D/g, "");
+    if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+    if (d.length === 10) d = "91" + d;
+    keys.phoneKey = d;
+  }
+  if (c.email) keys.emailKey = c.email.trim().toLowerCase();
+  return keys;
 }
 
 export function cleanTag(v: unknown): string | undefined {

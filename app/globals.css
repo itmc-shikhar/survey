@@ -114,6 +114,8 @@ textarea.field { min-height: 150px; resize: vertical; }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
 .bar .wordmark { text-decoration: none; }
+.wordcount { margin: 8px 2px 0; font: 600 14px/1.3 var(--body); color: var(--ink-2); }
+.wordcount.ok { color: var(--saffron-ink); }
 .count { font: 600 14px/1 var(--body); color: var(--ink-2); }
 
 /* ---------- Tablet and up ---------- */

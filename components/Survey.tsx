@@ -1,20 +1,34 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { type Answers, type Contact, type Question, UNDER_18, branchOf, visibleQuestions } from "@/lib/questions";
+import { type Answers, type Contact, type Question, UNDER_18, branchOf, enoughWords, visibleQuestions, wordStats } from "@/lib/questions";
 
-type Phase = "asking" | "under18" | "sending" | "done";
+type Phase = "checking" | "asking" | "under18" | "sending" | "done" | "already";
+type Done = { id: string; woman: boolean; gaveContact: boolean };
+
+// ponytail: per-device flag only (private mode / another browser gets around it); the server merges repeats by phone/email.
+const DONE_KEY = "noticed_survey_done_v1";
 
 export default function Survey() {
   const [answers, setAnswers] = useState<Answers>({});
   const [i, setI] = useState(0);
-  const [phase, setPhase] = useState<Phase>("asking");
+  const [phase, setPhase] = useState<Phase>("checking");
   const [error, setError] = useState("");
-  const [id, setId] = useState("");
+  const [done, setDone] = useState<Done | null>(null);
   const startedAt = useRef(0);
   const honeypot = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let prior: Done | null = null;
+    try {
+      prior = JSON.parse(localStorage.getItem(DONE_KEY) || "null");
+    } catch { /* storage blocked: let them take it */ }
+    if (prior?.id) {
+      setDone(prior);
+      setPhase("already");
+      return;
+    }
+    setPhase("asking");
     startedAt.current = Date.now();
     // Each question is a history entry, so browser/phone back steps through questions.
     history.replaceState({ step: 0 }, "");
@@ -69,7 +83,9 @@ export default function Survey() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Something went wrong");
-      setId(data.id);
+      const d: Done = { id: data.id, woman: branchOf(a) === "woman", gaveContact: hasContact(a.G1) };
+      try { localStorage.setItem(DONE_KEY, JSON.stringify(d)); } catch { /* storage blocked */ }
+      setDone(d);
       setPhase("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -87,10 +103,13 @@ export default function Survey() {
       </Shell>
     );
   }
-  if (phase === "done") return <ThankYou id={id} woman={branchOf(answers) === "woman"} gaveContact={hasContact(answers.G1)} />;
+  if (phase === "checking") return <Shell>{null}</Shell>;
+  if ((phase === "done" || phase === "already") && done) return <ThankYou {...done} already={phase === "already"} />;
 
   const empty = value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
-  const canContinue = q.kind === "info" || (q.kind === "contact" ? contactValid(value as Contact | undefined) : !(q.required && empty));
+  const longEnough = !(q.kind === "text" && q.minWords) || enoughWords((value as string) || "", q.minWords);
+  const canContinue =
+    q.kind === "info" || (q.kind === "contact" ? contactValid(value as Contact | undefined) : !(q.required && empty) && longEnough);
   const progress = Math.round((i / list.length) * 100);
   // First question: back returns to the landing page (keeping ref/vouch codes).
   const back = phase !== "asking" ? undefined : i > 0 ? () => history.back() : () => location.assign("/" + location.search);
@@ -160,10 +179,24 @@ function Field({ q, value, set, onPick }: { q: Question; value: unknown; set: (v
       );
     }
     case "text":
-      return q.long ? (
-        <textarea className="field" aria-labelledby={labelledBy} placeholder={q.placeholder} maxLength={2000}
-          value={(value as string) || ""} onChange={(e) => set(e.target.value)} />
-      ) : (
+      if (q.long) {
+        const text = (value as string) || "";
+        const { words, unique } = wordStats(text);
+        const min = q.minWords;
+        const filler = !!min && words >= min && unique < Math.ceil(min / 2);
+        return (
+          <>
+            <textarea className="field" aria-labelledby={labelledBy} aria-describedby={`${q.id}-count`} placeholder={q.placeholder}
+              maxLength={2000} value={text} onChange={(e) => set(e.target.value)} />
+            {min && (
+              <p id={`${q.id}-count`} className={`wordcount${words >= min && !filler ? " ok" : ""}`} aria-live="polite">
+                {filler ? "Try writing it in your own words, with fewer repeats." : `${words} / ${min} words`}
+              </p>
+            )}
+          </>
+        );
+      }
+      return (
         <>
           <input className="field" aria-labelledby={labelledBy} placeholder={q.placeholder} maxLength={120}
             list={q.suggestions ? `${q.id}-list` : undefined} value={(value as string) || ""} onChange={(e) => set(e.target.value)} />
@@ -244,7 +277,7 @@ function Shell({ children, progress, step, onBack }: { children: React.ReactNode
   );
 }
 
-function ThankYou({ id, woman, gaveContact }: { id: string; woman: boolean; gaveContact: boolean }) {
+function ThankYou({ id, woman, gaveContact, already }: Done & { already: boolean }) {
   const [copied, setCopied] = useState("");
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = `${origin}/?ref=${id}`;
@@ -261,9 +294,10 @@ function ThankYou({ id, woman, gaveContact }: { id: string; woman: boolean; gave
   return (
     <Shell>
       <div className="step">
-        <h1>Thanks. You&apos;ve been noticed.</h1>
+        <h1>{already ? "You've already taken the survey." : "Thanks. You've been noticed."}</h1>
         <p className="help">
-          Your answers shape what we build first.{gaveContact ? " We'll message you when early access opens near you." : ""}
+          {already ? "One response per person keeps the results honest. Thanks for yours." : "Your answers shape what we build first."}
+          {gaveContact ? " We'll message you when early access opens near you." : ""}
         </p>
         <div className="share">
           <button className="btn btn-primary" onClick={() => share(shareUrl, "share", "Quick 3-min survey on dating apps in India. Your answers shape a new app:")}>

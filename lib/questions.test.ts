@@ -1,8 +1,18 @@
 // Run: npm test
 import assert from "node:assert/strict";
-import { validate, visibleQuestions, cleanTag } from "./questions.ts";
+import { validate, visibleQuestions, cleanTag, contactKeys, enoughWords, wordStats, MIN_WORDS } from "./questions.ts";
 
-const base = { A1: "21–24", consent: true, A4: "On a college campus (student)", A5: "Pune", F1: "Free premium features" };
+const story = Array.from({ length: 50 }, (_, n) => `word${String.fromCharCode(97 + (n % 26))}${String.fromCharCode(97 + Math.floor(n / 26))}`).join(" ");
+const base = { A1: "21–24", consent: true, A4: "On a college campus (student)", A5: "Pune", C1: story, F1: "Free premium features" };
+
+// Open question needs MIN_WORDS real, varied words.
+assert.equal(MIN_WORDS, 50);
+assert.ok(enoughWords(story, 50));
+assert.equal(enoughWords("good ".repeat(60), 50), false); // filler
+assert.equal(enoughWords("too short", 50), false);
+assert.equal(validate({ ...base, A2: "Woman", C1: "nothing much" }).ok, false);
+assert.equal(validate({ ...base, A2: "Woman", C1: undefined }).ok, false); // required
+assert.equal(wordStats("Mostly low-effort 'hi' msgs, 3 matches").words, 6); // "3" is not a word; "low", "effort" are
 
 // Woman sees the woman branch, not the man branch.
 const wIds = visibleQuestions({ ...base, A2: "Woman" }).map((q) => q.id);
@@ -43,8 +53,17 @@ const g3 = validate({ ...base, A2: "Man", G3: "Yes" });
 assert.ok(g3.ok && !("G3" in g3.value.answers));
 
 // Long text is capped.
-const long = validate({ ...base, A2: "Woman", C1: "x".repeat(5000) });
+const long = validate({ ...base, A2: "Woman", C1: (story + " ").repeat(20) });
 assert.ok(long.ok && (long.value.answers.C1 as string).length === 2000);
+
+// Same person, different phone formatting -> same key.
+const k = (phone: string) => contactKeys({ phone }).phoneKey;
+assert.equal(k("+91 98765 43210"), "919876543210");
+assert.equal(k("9876543210"), "919876543210");
+assert.equal(k("09876543210"), "919876543210");
+assert.equal(k("(987) 654-3210"), "919876543210");
+assert.equal(contactKeys({ email: " A@B.co " }).emailKey, "a@b.co");
+assert.deepEqual(contactKeys({}), {});
 
 assert.equal(cleanTag("insta-du_1"), "insta-du_1");
 assert.equal(cleanTag("<script>"), undefined);

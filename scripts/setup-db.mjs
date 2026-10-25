@@ -16,6 +16,9 @@ try {
   await db.collection("responses").createIndex({ submittedAt: -1 });
   await db.collection("responses").createIndex({ "answers.A5": 1, branch: 1 });
   await db.collection("contacts").createIndex({ respondentId: 1 }, { unique: true });
+  // One person per phone / email (only enforced when the field is present).
+  for (const key of ["phoneKey", "emailKey"])
+    await db.collection("contacts").createIndex({ [key]: 1 }, { unique: true, partialFilterExpression: { [key]: { $type: "string" } } });
   console.log(`DB "${name}" ready:`, (await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name));
 } finally {
   await client.close();
