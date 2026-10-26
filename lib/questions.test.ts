@@ -1,6 +1,7 @@
 // Run: npm test
 import assert from "node:assert/strict";
 import { validate, visibleQuestions, cleanTag, contactKeys, enoughWords, wordStats, MIN_WORDS } from "./questions.ts";
+import { validateEvent } from "./track.ts";
 
 const story = Array.from({ length: 50 }, (_, n) => `word${String.fromCharCode(97 + (n % 26))}${String.fromCharCode(97 + Math.floor(n / 26))}`).join(" ");
 const base = { A1: "21–24", consent: true, A4: "On a college campus (student)", A5: "Pune", C1: story, F1: "Free premium features" };
@@ -67,5 +68,15 @@ assert.deepEqual(contactKeys({}), {});
 
 assert.equal(cleanTag("insta-du_1"), "insta-du_1");
 assert.equal(cleanTag("<script>"), undefined);
+
+// Tracking events: option values kept, typed text / contact details always dropped.
+const sid = "0b7e4c2a-1111-4222-8333-944455556666";
+assert.deepEqual(validateEvent({ sid, t: "answer", q: "D1", v: "200+" }), { sid, t: "answer", q: "D1", v: "200+", ref: undefined });
+assert.equal(validateEvent({ sid, t: "answer", q: "C1", v: "my private story" })?.v, undefined);
+assert.equal(validateEvent({ sid, t: "answer", q: "G1", v: { phone: "9876543210" } })?.v, undefined);
+assert.equal(validateEvent({ sid, t: "answer", q: "D1", v: "made up" })?.v, undefined);
+assert.equal(validateEvent({ sid, t: "hack" }), null);
+assert.equal(validateEvent({ sid: "<x>", t: "view" }), null);
+assert.equal(validateEvent({ sid, t: "view", q: "NOPE" }), null);
 
 console.log("questions: all checks passed");

@@ -30,6 +30,12 @@ npm test                                            # question/validation self-c
 - Per channel: `https://<site>/?ref=insta-pune` (any code: letters, numbers, `-`, `_`, max 40)
 - Respondents' share links (`?ref=<their id>`) and women's vouch links (`?vouch=<her id>`) are generated on the thank-you screen.
 
+## Private insights page
+
+`/insights-d99d5rfhj7`: browser login prompt, any username, password = `ADMIN_PASSWORD` env var. Shows the funnel (where people drop off), per-channel and per-place numbers, option counts by gender, every response, and a CSV download. The password is checked in `proxy.ts` (login prompt) and again in the page and export route.
+
+Anonymous funnel events (`events` collection) record page visits, question views, skips and chosen options per random session ID. They never contain typed text, phone numbers or emails (`lib/track.ts` drops them server-side too).
+
 ## Changing questions
 
 Edit `lib/questions.ts` only. The UI renders from it and the API validates against it. Bump `FORM_VERSION` when you change wording so old and new answers can be told apart. Run `npm test` after.

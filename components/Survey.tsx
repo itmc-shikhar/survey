@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { type Answers, type Contact, type Question, UNDER_18, branchOf, enoughWords, visibleQuestions, wordStats } from "@/lib/questions";
+import { track } from "@/lib/track";
 
 type Phase = "checking" | "asking" | "under18" | "sending" | "done" | "already";
 type Done = { id: string; woman: boolean; gaveContact: boolean };
@@ -16,9 +17,11 @@ export default function Survey() {
   const [error, setError] = useState("");
   const [done, setDone] = useState<Done | null>(null);
   const startedAt = useRef(0);
+  const sid = useRef(""); // anonymous per-visit id for funnel events
   const honeypot = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    sid.current = crypto.randomUUID();
     let prior: Done | null = null;
     try {
       prior = JSON.parse(localStorage.getItem(DONE_KEY) || "null");
@@ -26,9 +29,11 @@ export default function Survey() {
     if (prior?.id) {
       setDone(prior);
       setPhase("already");
+      track(sid.current, "already");
       return;
     }
     setPhase("asking");
+    track(sid.current, "start");
     startedAt.current = Date.now();
     // Each question is a history entry, so browser/phone back steps through questions.
     history.replaceState({ step: 0 }, "");
@@ -54,9 +59,20 @@ export default function Survey() {
   const value = answers[q.id];
   const set = (v: unknown) => setAnswers((a) => ({ ...a, [q.id]: v }));
 
+  useEffect(() => {
+    if (phase === "asking") track(sid.current, "view", q.id);
+  }, [q.id, phase]);
+
   function next(a: Answers = answers) {
     setError("");
+    const v = a[q.id];
+    if (q.kind !== "info") {
+      const answered = !(v === undefined || v === "" || (Array.isArray(v) && v.length === 0));
+      // Only fixed option values leave the page; typed text and contact details never do.
+      track(sid.current, answered ? "answer" : "skip", q.id, q.kind === "single" || q.kind === "multi" ? v : undefined);
+    }
     if (q.id === "A1" && a.A1 === UNDER_18) {
+      track(sid.current, "under18", "A1");
       history.pushState({ step: 0 }, "");
       return setPhase("under18");
     }
@@ -85,6 +101,7 @@ export default function Survey() {
       if (!res.ok) throw new Error(data.error || "Something went wrong");
       const d: Done = { id: data.id, woman: branchOf(a) === "woman", gaveContact: hasContact(a.G1) };
       try { localStorage.setItem(DONE_KEY, JSON.stringify(d)); } catch { /* storage blocked */ }
+      track(sid.current, "submit");
       setDone(d);
       setPhase("done");
     } catch (e) {

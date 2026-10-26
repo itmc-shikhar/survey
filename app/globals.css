@@ -158,6 +158,41 @@ textarea.field { min-height: 150px; resize: vertical; }
   .btn-primary:hover:not(:disabled) { background: var(--saffron-press); }
 }
 
+/* ---------- Insights (private) ---------- */
+.admin { max-width: 1200px; margin: 0 auto; padding: 24px 16px 64px; }
+.admin-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 8px; }
+.admin-head .wordmark { color: var(--saffron-ink); font-size: 22px; }
+.admin h1 { font: 800 34px/1.05 var(--display); margin: 6px 0 4px; }
+.admin h2 { font: 800 22px/1.2 var(--display); margin: 40px 0 10px; }
+.admin h3 { font: 600 15px/1.35 var(--body); margin: 0 0 4px; }
+.muted { color: var(--ink-2); font-size: 14px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.stat { background: var(--surface); border-radius: 20px; padding: 16px; }
+.stat-n { font: 800 34px/1 var(--display); }
+.stat-label { font-weight: 600; font-size: 14px; margin-top: 6px; }
+.table-wrap { overflow-x: auto; background: var(--surface); border-radius: 20px; }
+.admin table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.admin th, .admin td { text-align: left; padding: 10px 14px; vertical-align: top; }
+.admin th { font-weight: 600; color: var(--ink-2); background: var(--sunk); white-space: nowrap; }
+.admin tbody tr:nth-child(even) td { background: var(--ground); }
+.admin tr.hot td { background: var(--saffron-soft) !important; }
+.admin td:not(:first-child), .admin th:not(:first-child) { white-space: nowrap; }
+.option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.option-card { background: var(--surface); border-radius: 20px; padding: 16px; overflow-x: auto; }
+.option-card table { margin-top: 8px; }
+.option-card th, .option-card td { padding: 6px 8px; }
+.responses { display: grid; gap: 8px; }
+.response { background: var(--surface); border-radius: 16px; padding: 12px 16px; }
+.response summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 15px; }
+.response-body { padding-top: 12px; }
+.response .c1 { white-space: pre-wrap; background: var(--sunk); border-radius: 12px; padding: 12px; margin: 0 0 12px; }
+.response dl { display: grid; gap: 8px; margin: 0; }
+.response dt { font-size: 13px; color: var(--ink-2); }
+.response dd { margin: 2px 0 0; }
+.pill { font: 600 12px/1 var(--body); padding: 5px 10px; border-radius: 999px; background: var(--sunk); }
+.pill-brand { background: var(--saffron-soft); color: var(--saffron-ink); }
+@media (min-width: 768px) { .admin { padding: 40px 40px 80px; } .response dl { grid-template-columns: 1fr 1fr; } }
+
 @keyframes rise { from { opacity: 0; transform: translateY(22px); } }
 @media (prefers-reduced-motion: reduce) {
   .step { animation: none; }

@@ -11,7 +11,9 @@ const client = await new MongoClient(uri, { serverSelectionTimeoutMS: 15000 }).c
 try {
   const db = client.db(name);
   const existing = new Set((await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name));
-  for (const c of ["responses", "contacts"]) if (!existing.has(c)) await db.createCollection(c);
+  for (const c of ["responses", "contacts", "events"]) if (!existing.has(c)) await db.createCollection(c);
+  await db.collection("events").createIndex({ t: 1, q: 1 });
+  await db.collection("events").createIndex({ sid: 1, at: 1 });
   await db.collection("responses").createIndex({ respondentId: 1 }, { unique: true });
   await db.collection("responses").createIndex({ submittedAt: -1 });
   await db.collection("responses").createIndex({ "answers.A5": 1, branch: 1 });

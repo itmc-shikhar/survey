@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Beacon from "@/components/Beacon";
 import { cleanTag } from "@/lib/questions";
 
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -13,6 +14,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
 
   return (
     <main>
+      <Beacon />
       <section className="hero">
         <div className="hero-inner">
           <div className="wordmark">Noticed</div>
